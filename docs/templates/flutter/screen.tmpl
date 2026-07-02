@@ -1,0 +1,35 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:metacart/features/{{.feature}}/bloc/{{.name}}_bloc.dart';
+import 'package:metacart/features/{{.feature}}/bloc/{{.name}}_event.dart';
+import 'package:metacart/features/{{.feature}}/bloc/{{.name}}_state.dart';
+
+class {{.Name}}Screen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => {{.Name}}Bloc(
+        repository: context.read<{{.Name}}Repository>(),
+      )..add(Load{{.Name}}()),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('{{.Name}}'),
+        ),
+        body: BlocBuilder<{{.Name}}Bloc, {{.Name}}State>(
+          builder: (context, state) {
+            if (state is {{.Name}}Loading) {
+              return Center(child: CircularProgressIndicator());
+            }
+            if (state is {{.Name}}Loaded) {
+              return {{.Name}}View(data: state.data);
+            }
+            if (state is {{.Name}}Error) {
+              return Center(child: Text('Error: ${state.message}'));
+            }
+            return SizedBox();
+          },
+        ),
+      ),
+    );
+  }
+}

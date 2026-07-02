@@ -1,0 +1,6 @@
+package: dto
+generate:
+  models: true
+  client: false
+  server: false
+output: ../../apps/api/internal/dto/generated.go

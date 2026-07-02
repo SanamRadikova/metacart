@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>MetaCart — Entity-Relationship Diagram (Updated)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'Inter', sans-serif;
+    background: #0a0a0f;
+    color: #e5e5e5;
+    padding: 30px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 6px;
+    color: #fff;
+  }
+  .subtitle {
+    color: #86868b;
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
+  
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #aaa;
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
+  
+  .canvas-container {
+    width: 100%;
+    overflow: auto;
+    background: #111118;
+    border-radius: 12px;
+    border: 1px solid #2a2a3a;
+    padding: 20px;
+  }
+  
+  .erd-canvas {
+    min-width: 1600px;
+    min-height: 1550px;
+    position: relative;
+  }
+  
+  /* Таблицы */
+  .table {
+    position: absolute;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    min-width: 260px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    cursor: move;
+    transition: box-shadow 0.2s;
+    z-index: 10;
+  }
+  .table:hover {
+    box-shadow: 0 4px 30px rgba(0,113,227,0.3);
+    z-index: 20;
+  }
+  .table.core { border-color: #0071e3; }
+  .table.labs { border-color: #34c759; }
+  .table.devices { border-color: #ff9500; }
+  .table.analysis { border-color: #af52de; }
+  .table.cart { border-color: #ff2d55; }
+  .table.drift { border-color: #ff3b30; border-width: 2px; }
+  .table.ref { border-color: #5ac8fa; }
+  
+  .table-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid #333;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 10px 10px 0 0;
+  }
+  .table.core .table-header { background: rgba(0,113,227,0.15); color: #5ac8fa; }
+  .table.labs .table-header { background: rgba(52,199,89,0.15); color: #34c759; }
+  .table.devices .table-header { background: rgba(255,149,0,0.15); color: #ff9500; }
+  .table.analysis .table-header { background: rgba(175,82,222,0.15); color: #af52de; }
+  .table.cart .table-header { background: rgba(255,45,85,0.15); color: #ff2d55; }
+  .table.drift .table-header { background: rgba(255,59,48,0.2); color: #ff6961; }
+  .table.ref .table-header { background: rgba(90,200,250,0.15); color: #5ac8fa; }
+  
+  .table-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: auto;
+  }
+  .table.drift .table-badge { background: #ff3b30; color: #fff; }
+  .table.devices .table-badge { background: #ff9500; color: #000; }
+  
+  .table-body {
+    padding: 8px 0;
+  }
+  .field {
+    padding: 3px 14px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #ccc;
+  }
+  .field.pk {
+    color: #ffd60a;
+    font-weight: 600;
+  }
+  .field.fk {
+    color: #5ac8fa;
+  }
+  .field-icon {
+    font-size: 10px;
+    width: 14px;
+    text-align: center;
+  }
+  .field-type {
+    color: #666;
+    font-size: 10px;
+    margin-left: auto;
+  }
+  .field.soft-deleted {
+    color: #ff6961;
+    font-style: italic;
+  }
+  .field.partitioning {
+    color: #ff9500;
+    font-style: italic;
+    font-size: 11px;
+    padding-top: 6px;
+    border-top: 1px dashed #333;
+    margin-top: 4px;
+  }
+  
+  /* SVG связи */
+  svg.connections {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .connection-line {
+    stroke-width: 1.5;
+    fill: none;
+    opacity: 0.6;
+  }
+  .connection-line.core { stroke: #0071e3; }
+  .connection-line.labs { stroke: #34c759; }
+  .connection-line.devices { stroke: #ff9500; }
+  .connection-line.analysis { stroke: #af52de; }
+  .connection-line.cart { stroke: #ff2d55; }
+  .connection-line.drift { stroke: #ff3b30; stroke-width: 2; opacity: 0.8; }
+  
+  .connection-label {
+    font-size: 10px;
+    fill: #888;
+    text-anchor: middle;
+  }
+  
+  /* Info panel */
+  .info-panel {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .info-card {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .info-card h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+  .info-card p {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+  }
+  .info-card .highlight {
+    color: #ff3b30;
+    font-weight: 600;
+  }
+  .info-card code {
+    background: #2a2a3a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #5ac8fa;
+  }
+  
+  .stats-bar {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+
+<h1>MetaCart — Entity-Relationship Diagram</h1>
+<p class="subtitle">PostgreSQL 15 (Supabase Compatible) · 20 tables · 4 relationship groups · Beta Schema v1.1</p>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-value">20</div><div class="stat-label">tables</div></div>
+  <div class="stat"><div class="stat-value">28</div><div class="stat-label">relationships</div></div>
+  <div class="stat"><div class="stat-value">1</div><div class="stat-label">Partitioned Table (By Range)</div></div>
+  <div class="stat"><div class="stat-value">4</div><div class="stat-label">views for analysts</div></div>
+  <div class="stat"><div class="stat-value">4</div><div class="stat-label">engine functions</div></div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#0071e3;"></div> Core (users, consent)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#34c759;"></div> Labs & Analysis</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff9500;"></div> Devices (Postgres Partitioning)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#af52de;"></div> Engine Output (axes, profiles)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff2d55;"></div> Grocery Cart</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff3b30; border:2px solid #ff3b30;"></div> Step 4 — Drift (CORE DIFFERENTIATOR)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#5ac8fa;"></div> Reference (seeding)</div>
+</div>
+
+<div class="canvas-container">
+<div class="erd-canvas" id="erdCanvas">
+
+<svg class="connections" id="connectionsSvg">
+  <!-- Lines drawn by JS -->
+</svg>
+
+<!-- ============ CORE ============ -->
+<div class="table core" id="tbl_users" style="left: 50px; top: 50px; width: 300px;">
+  <div class="table-header">👤 users</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-icon"></span> email <span class="field-type">VARCHAR UNIQUE</span></div>
+    <div class="field"><span class="field-icon"></span> gender <span class="field-type">VARCHAR</span></div>
+    <div class="field" style="color:#ffd60a;"><span class="field-icon">📅</span> date_of_birth <span class="field-type">DATE NOT NULL</span></div>
+    <div class="field"><span class="field-icon"></span> cohort_type <span class="field-type">standard | deep_tracking</span></div>
+    <div class="field"><span class="field-icon"></span> cultural_group <span class="field-type">VARCHAR</span></div>
+    <div class="field" style="color:#5ac8fa;"><span class="field-icon">🔬</span> research_group <span class="field-type">A | B | C | D (2x2)</span></div>
+    <div class="field"><span class="field-icon"></span> onboarding_completed <span class="field-type">BOOLEAN</span></div>
+    <div class="field soft-deleted"><span class="field-icon">🗑️</span> deleted_at <span class="field-type">TIMESTAMPTZ (nullable)</span></div>
+  </div>
+</div>
+
+<div class="table core" id="tbl_consents" style="left: 50px; top: 380px; width: 280px;">
+  <div class="table-header">📋 research_consents</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field"><span class="field-icon"></span> consent_version <span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-icon"></span> consent_text_hash <span class="field-type">SHA-256</span></div>
+    <div class="field"><span class="field-icon"></span> agreed_at <span class="field-type">TIMESTAMPTZ</span></div>
+    <div class="field"><span class="field-icon"></span> withdrew_at <span class="field-type">TIMESTAMPTZ (nullable)</span></div>
+    <div class="field soft-deleted"><span class="field-icon">🗑️</span> deleted_at <span class="field-type">TIMESTAMPTZ (nullable)</span></div>
+  </div>
+</div>
+
+<!-- ============ LABS ============ -->
+<div class="table labs" id="tbl_lab_results" style="left: 420px; top: 50px; width: 280px;">
+  <div class="table-header">🧪 lab_results</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field"><span class="field-icon"></span> timepoint <span class="field-type">baseline | follow_up</span></div>
+    <div class="field"><span class="field-icon"></span> sample_date <span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-icon"></span> source_type <span class="field-type">manual | ocr | pdf</span></div>
+    <div class="field"><span class="field-icon"></span> processing_status <span class="field-type">VARCHAR</span></div>
+    <div class="field soft-deleted"><span class="field-icon">🗑️</span> deleted_at <span class="field-type">TIMESTAMPTZ (nullable)</span></div>
+  </div>
+</div>
+
+<div class="table labs" id="tbl_lab_values" style="left: 420px; top: 360px; width: 270px;">
+  <div class="table-header">📊 lab_values</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> lab_result_id <span class="field-type">→ lab_results</span></div>
+    <div class="field"><span class="field-icon"></span> biomarker <span class="field-type">glucose, hba1c, ...</span></div>
+    <div class="field"><span class="field-icon"></span> value_normalized <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> value_original <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> unit_original <span class="field-type">mmol/L, %, ...</span></div>
+    <div class="field"><span class="field-icon"></span> axis_status <span class="field-type">🟢🟡🟠</span></div>
+  </div>
+</div>
+
+<!-- ============ REFERENCE ============ -->
+<div class="table ref" id="tbl_units_ref" style="left: 420px; top: 660px; width: 260px;">
+  <div class="table-header">📖 lab_units_reference</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">SERIAL PK</span></div>
+    <div class="field"><span class="field-icon"></span> biomarker <span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-icon"></span> source_unit <span class="field-type">mmol/L, %</span></div>
+    <div class="field"><span class="field-icon"></span> conversion_type <span class="field-type">multiply | formula</span></div>
+    <div class="field"><span class="field-icon"></span> conversion_factor <span class="field-type">18.02, 88.57</span></div>
+  </div>
+</div>
+
+<div class="table ref" id="tbl_ref_ranges" style="left: 420px; top: 930px; width: 300px;">
+  <div class="table-header">🎯 reference_ranges</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">SERIAL PK</span></div>
+    <div class="field"><span class="field-icon"></span> biomarker <span class="field-type">VARCHAR</span></div>
+    <div class="field" style="color:#5ac8fa;"><span class="field-icon">🌍</span> cultural_group <span class="field-type">VARCHAR (South Asian...)</span></div>
+    <div class="field"><span class="field-icon"></span> gender <span class="field-type">male | female | any</span></div>
+    <div class="field"><span class="field-icon"></span> green_min / green_max <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> yellow_min / yellow_max <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> orange_min / orange_max <span class="field-type">NUMERIC</span></div>
+  </div>
+</div>
+
+<!-- ============ CULTURAL ============ -->
+<div class="table labs" id="tbl_cultural" style="left: 50px; top: 620px; width: 260px;">
+  <div class="table-header">🌍 cultural_profiles</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users (UNIQUE)</span></div>
+    <div class="field"><span class="field-icon"></span> primary_culture <span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-icon"></span> staple_foods <span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-icon"></span> dietary_restrictions <span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-icon"></span> household_size <span class="field-type">SMALLINT</span></div>
+  </div>
+</div>
+
+<div class="table ref" id="tbl_food_patterns" style="left: 50px; top: 930px; width: 270px;">
+  <div class="table-header">🍲 cultural_food_patterns</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">SERIAL PK</span></div>
+    <div class="field"><span class="field-icon"></span> culture <span class="field-type">eastern_european, ...</span></div>
+    <div class="field"><span class="field-icon"></span> pattern_name <span class="field-type">borscht, rice_dal</span></div>
+    <div class="field"><span class="field-icon"></span> typical_ingredients <span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-icon"></span> glycemic_impact <span class="field-type">low | moderate | high</span></div>
+    <div class="field"><span class="field-icon"></span> protective / trigger <span class="field-type">BOOLEAN</span></div>
+  </div>
+</div>
+
+<!-- ============ HORMONAL ============ -->
+<div class="table labs" id="tbl_hormonal" style="left: 50px; top: 1200px; width: 260px;">
+  <div class="table-header">♀️ hormonal_statuses</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users (UNIQUE)</span></div>
+    <div class="field"><span class="field-icon"></span> status <span class="field-type">follicular | pms | ...</span></div>
+    <div class="field"><span class="field-icon"></span> threshold_modifier <span class="field-type">0.80 for PMS</span></div>
+  </div>
+</div>
+
+<!-- ============ DEVICES ============ -->
+<div class="table devices" id="tbl_device_conn" style="left: 780px; top: 50px; width: 260px;">
+  <div class="table-header">⌚ device_connections</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field"><span class="field-icon"></span> device_type <span class="field-type">apple_health | google_fit</span></div>
+    <div class="field"><span class="field-icon"></span> permissions <span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-icon"></span> connection_status <span class="field-type">connected | ...</span></div>
+  </div>
+</div>
+
+<div class="table devices" id="tbl_device_readings" style="left: 780px; top: 340px; width: 300px;">
+  <div class="table-header">
+    📈 device_readings
+    <span class="table-badge">pg_partman</span>
+  </div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">BIGSERIAL PK</span></div>
+    <div class="field"><span class="field-icon">📅</span> timestamp <span class="field-type">TIMESTAMPTZ (partition key)</span></div>
+    <div class="field"><span class="field-icon">🔗</span> user_id <span class="field-type">UUID</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> device_connection_id <span class="field-type">→ device_conn</span></div>
+    <div class="field"><span class="field-icon"></span> reading_type <span class="field-type">hrv_rmssd, cgm_glucose, sdnn, pnn50</span></div>
+    <div class="field"><span class="field-icon"></span> value <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> dg_dt <span class="field-type">computed NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> dg_dt_status <span class="field-type">rising_fast/rising/steady/falling_slowly/falling/falling_fast</span></div>
+    <div class="field soft-deleted"><span class="field-icon">🗑️</span> deleted_at <span class="field-type">TIMESTAMPTZ (nullable)</span></div>
+    <div class="field partitioning">⚡ pg_partman — monthly partitions, 12-month retention</div>
+  </div>
+</div>
+
+<!-- ============ SYMPTOMS ============ -->
+<div class="table devices" id="tbl_symptoms" style="left: 780px; top: 680px; width: 270px;">
+  <div class="table-header">😵 symptom_logs</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field"><span class="field-icon"></span> symptoms <span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-icon"></span> severity <span class="field-type">1-10</span></div>
+    <div class="field"><span class="field-icon"></span> hunger_level <span class="field-type">0-10</span></div>
+    <div class="field"><span class="field-icon"></span> glucose_at_symptom <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> dg_dt_at_symptom <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> hrv_rmssd_at_symptom <span class="field-type">NUMERIC</span></div>
+  </div>
+</div>
+
+<!-- ============ ANALYSIS (Engine Output) ============ -->
+<div class="table analysis" id="tbl_axes" style="left: 1150px; top: 50px; width: 270px;">
+  <div class="table-header">🎯 axis_evaluations</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> lab_result_id <span class="field-type">→ lab_results</span></div>
+    <div class="field"><span class="field-icon"></span> axis_1_status <span class="field-type">🟢🟡🟠 glycemic</span></div>
+    <div class="field"><span class="field-icon"></span> axis_2_status <span class="field-type">🟢🟡🟠 lipid</span></div>
+    <div class="field"><span class="field-icon"></span> axis_3_status <span class="field-type">🟢🟡🟠 inflammatory</span></div>
+    <div class="field"><span class="field-icon"></span> axis_4_status <span class="field-type">🟢🟡🟠 thyroid</span></div>
+    <div class="field"><span class="field-icon"></span> axis_5_status <span class="field-type">🟢🟡🟠 neuro-autonomic</span></div>
+    <div class="field"><span class="field-icon"></span> data_completeness <span class="field-type">minimal → full</span></div>
+  </div>
+</div>
+
+<div class="table analysis" id="tbl_profiles" style="left: 1150px; top: 410px; width: 270px;">
+  <div class="table-header">🧬 profiles</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> axis_evaluation_id <span class="field-type">→ axis_eval</span></div>
+    <div class="field"><span class="field-icon"></span> profile_number <span class="field-type">1-5</span></div>
+    <div class="field"><span class="field-icon"></span> selection_step <span class="field-type">0-4 (hierarchy)</span></div>
+    <div class="field"><span class="field-icon"></span> modifiers <span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-icon"></span> hormonal_modifier <span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-icon"></span> is_active <span class="field-type">BOOLEAN</span></div>
+  </div>
+</div>
+
+<!-- ============ CART ============ -->
+<div class="table cart" id="tbl_rec_carts" style="left: 1150px; top: 760px; width: 270px;">
+  <div class="table-header">🛒 recommended_carts</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> profile_id <span class="field-type">→ profiles</span></div>
+    <div class="field"><span class="field-icon"></span> budget_tier <span class="field-type">low | mid | high</span></div>
+    <div class="field"><span class="field-icon"></span> household_size <span class="field-type">SMALLINT</span></div>
+    <div class="field"><span class="field-icon"></span> total_estimated_cost <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> exported_format <span class="field-type">csv | pdf</span></div>
+  </div>
+</div>
+
+<div class="table cart" id="tbl_cart_items" style="left: 1150px; top: 1080px; width: 270px;">
+  <div class="table-header">📦 cart_items</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> recommended_cart_id <span class="field-type">→ rec_carts</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> product_catalog_id <span class="field-type">→ products</span></div>
+    <div class="field"><span class="field-icon"></span> product_name <span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-icon"></span> quantity + unit <span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-icon"></span> is_nutraceutical <span class="field-type">BOOLEAN</span></div>
+    <div class="field"><span class="field-icon"></span> disclaimer_accepted <span class="field-type">BOOLEAN</span></div>
+  </div>
+</div>
+
+<!-- ============ PRODUCTS CATALOG ============ -->
+<div class="table ref" id="tbl_products" style="left: 1150px; top: 1350px; width: 260px;">
+  <div class="table-header">🏪 products_catalog</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-icon"></span> product_name <span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-icon"></span> product_category <span class="field-type">proteins, ...</span></div>
+    <div class="field"><span class="field-icon"></span> trade_units <span class="field-type">JSONB (by tier)</span></div>
+    <div class="field"><span class="field-icon"></span> is_nutraceutical <span class="field-type">BOOLEAN</span></div>
+    <div class="field"><span class="field-icon"></span> profile_tags <span class="field-type">JSONB [1,2,3,4,5]</span></div>
+  </div>
+</div>
+
+<!-- ============ PURCHASES ============ -->
+<div class="table cart" id="tbl_purchases" style="left: 780px; top: 1000px; width: 310px;">
+  <div class="table-header">🧾 actual_purchases</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> recommended_cart_id <span class="field-type">→ rec_carts</span></div>
+    <div class="field"><span class="field-icon"></span> capture_method <span class="field-type">manual | receipt_photo</span></div>
+    <div class="field" style="color:#5ac8fa;"><span class="field-icon">🖼️</span> receipt_image_url <span class="field-type">VARCHAR (S3/Supabase Storage)</span></div>
+    <div class="field" style="color:#ffd60a;"><span class="field-icon">⚙️</span> ocr_status <span class="field-type">uploaded | processing | ...</span></div>
+    <div class="field"><span class="field-icon"></span> purchase_date <span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-icon"></span> store_name <span class="field-type">VARCHAR</span></div>
+  </div>
+</div>
+
+<div class="table cart" id="tbl_purchase_items" style="left: 780px; top: 1300px; width: 270px;">
+  <div class="table-header">📋 purchase_items</div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> actual_purchase_id <span class="field-type">→ purchases</span></div>
+    <div class="field"><span class="field-icon"></span> product_name <span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-icon"></span> match_status <span class="field-type">matches | drift | excluded</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> matched_cart_item_id <span class="field-type">→ cart_items</span></div>
+  </div>
+</div>
+
+<!-- ============ DRIFT (CORE!) ============ -->
+<div class="table drift" id="tbl_drift" style="left: 50px; top: 1430px; width: 320px;">
+  <div class="table-header">
+    📊 drift_analyses 
+    <span class="table-badge">CORE DIFFERENTIATOR</span>
+  </div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> user_id <span class="field-type">→ users</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> recommended_cart_id <span class="field-type">→ rec_carts</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> actual_purchase_id <span class="field-type">→ purchases</span></div>
+    <div class="field"><span class="field-icon"></span> match_percentage <span class="field-type">0-100%</span></div>
+    <div class="field"><span class="field-icon"></span> drift_percentage <span class="field-type">0-100%</span></div>
+    <div class="field"><span class="field-icon"></span> week_number <span class="field-type">for trend</span></div>
+    <div class="field" style="color:#ffd60a;"><span class="field-icon">⚡</span> grocery_stability_score <span class="field-type">NUMERIC(5,2)</span></div>
+  </div>
+</div>
+
+<div class="table drift" id="tbl_drift_items" style="left: 420px; top: 1430px; width: 270px;">
+  <div class="table-header">🔍 drift_items <span class="table-badge">CORE</span></div>
+  <div class="table-body">
+    <div class="field pk"><span class="field-icon">🔑</span> id <span class="field-type">UUID PK</span></div>
+    <div class="field fk"><span class="field-icon">🔗</span> drift_analysis_id <span class="field-type">→ drift_analyses</span></div>
+    <div class="field"><span class="field-icon"></span> product_name <span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-icon"></span> drift_type <span class="field-type">added | missing | excluded</span></div>
+    <div class="field"><span class="field-icon"></span> health_impact <span class="field-type">positive | neutral | negative</span></div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<!-- Info Panel -->
+<div class="info-panel">
+  <div class="info-card">
+    <h3>🔑 Primary Keys & Soft-delete Pattern</h3>
+    <p>Все таблицы используют <code>UUID v4</code> как PK. Соответствуя строгим требованиям IRB, в таблицы <code>users</code>, <code>research_consents</code>, <code>lab_results</code> и <code>device_readings</code> добавлено поле <code>deleted_at</code> для реализации <strong>soft-delete</strong> и сохранения аудиторского следа (audit trail) при отзыве согласия.</p>
+  </div>
+  <div class="info-card" style="border-color: #ff9500;">
+    <h3>⚡ Declarative Postgres Partitioning</h3>
+    <p>Поскольку Supabase не поддерживает TimescaleDB на базовых тарифах, таблица <code>device_readings</code> переведена на нативное декларативное партиционирование PostgreSQL по диапазонам (range partitioning) по полю <code>timestamp</code> (шаг секций — 1 месяц).</p>
+  </div>
+  <div class="info-card">
+    <h3>📊 JSONB поля & 2x2 Факториальный дизайн</h3>
+    <p>Поле <code>research_group</code> расширено до <code>D</code> для поддержки дизайна исследования 2х2. Информационные поля <code>modifiers</code> и <code>staple_foods</code> используют JSONB для бесшовной эволюции модели данных.</p>
+  </div>
+  <div class="info-card" style="border-color: #ff3b30;">
+    <h3>🚨 Grocery Stability Score (GSS)</h3>
+    <p class="highlight">Индекс стабильности корзины рассчитывается по формуле:</p>
+    <p style="font-size:11px; font-family: monospace; background:#2a2a3a; padding:6px; border-radius:4px; margin: 4px 0; color:#5ac8fa;">
+      GSS = (Matches_Items / Rec_Items) * 100 - (Triggers_Added * Penalty_Factor)
+    </p>
+    <p>Это автоматический неинвазивный поведенческий скор, защищенный IRB-протоколом.</p>
+  </div>
+  <div class="info-card">
+    <h3>🌾 Культурные Особенности в Референсах</h3>
+    <p>В таблицу <code>reference_ranges</code> добавлена колонка <code>cultural_group</code>. Пороги триглицеридов и соотношения TG/HDL теперь гибко фильтруются на бэкенде под этнос пользователя (например, заниженный порог 1.5 для South Asian).</p>
+  </div>
+  <div class="info-card">
+    <h3>📸 Receipt OCR & Storage</h3>
+    <p>Для чеков добавлены поля <code>receipt_image_url</code> и <code>ocr_status</code> (uploaded &rarr; ocr_processing &rarr; needs_review &rarr; confirmed). Это позволяет контролировать статус распознавания и предотвращать замусоривание базы.</p>
+  </div>
+</div>
+
+<script>
+// Draw connections between tables
+const connections = [
+  // Core
+  { from: 'tbl_users', to: 'tbl_consents', label: '1:N', cls: 'core' },
+  { from: 'tbl_users', to: 'tbl_cultural', label: '1:1', cls: 'core' },
+  { from: 'tbl_users', to: 'tbl_hormonal', label: '1:1', cls: 'core' },
+  
+  // Labs
+  { from: 'tbl_users', to: 'tbl_lab_results', label: '1:N', cls: 'labs' },
+  { from: 'tbl_lab_results', to: 'tbl_lab_values', label: '1:N', cls: 'labs' },
+  
+  // Devices
+  { from: 'tbl_users', to: 'tbl_device_conn', label: '1:N', cls: 'devices' },
+  { from: 'tbl_device_conn', to: 'tbl_device_readings', label: '1:N', cls: 'devices' },
+  { from: 'tbl_users', to: 'tbl_symptoms', label: '1:N', cls: 'devices' },
+  
+  // Analysis
+  { from: 'tbl_users', to: 'tbl_axes', label: '1:N', cls: 'analysis' },
+  { from: 'tbl_lab_results', to: 'tbl_axes', label: '1:1', cls: 'analysis' },
+  { from: 'tbl_axes', to: 'tbl_profiles', label: '1:N', cls: 'analysis' },
+  { from: 'tbl_users', to: 'tbl_profiles', label: '1:N', cls: 'analysis' },
+  
+  // Cart
+  { from: 'tbl_users', to: 'tbl_rec_carts', label: '1:N', cls: 'cart' },
+  { from: 'tbl_profiles', to: 'tbl_rec_carts', label: '1:N', cls: 'cart' },
+  { from: 'tbl_rec_carts', to: 'tbl_cart_items', label: '1:N', cls: 'cart' },
+  { from: 'tbl_users', to: 'tbl_purchases', label: '1:N', cls: 'cart' },
+  { from: 'tbl_rec_carts', to: 'tbl_purchases', label: '1:N', cls: 'cart' },
+  { from: 'tbl_purchases', to: 'tbl_purchase_items', label: '1:N', cls: 'cart' },
+  { from: 'tbl_cart_items', to: 'tbl_purchase_items', label: 'match', cls: 'cart' },
+  
+  // Drift (CORE!)
+  { from: 'tbl_users', to: 'tbl_drift', label: '1:N', cls: 'drift' },
+  { from: 'tbl_rec_carts', to: 'tbl_drift', label: '1:N', cls: 'drift' },
+  { from: 'tbl_purchases', to: 'tbl_drift', label: '1:1', cls: 'drift' },
+  { from: 'tbl_drift', to: 'tbl_drift_items', label: '1:N', cls: 'drift' },
+];
+
+function getTableCenter(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  const canvas = document.getElementById('erdCanvas');
+  const canvasRect = canvas.getBoundingClientRect();
+  return {
+    x: el.offsetLeft + el.offsetWidth / 2,
+    y: el.offsetTop + el.offsetHeight / 2,
+    left: el.offsetLeft,
+    right: el.offsetLeft + el.offsetWidth,
+    top: el.offsetTop,
+    bottom: el.offsetTop + el.offsetHeight
+  };
+}
+
+function drawConnections() {
+  const svg = document.getElementById('connectionsSvg');
+  svg.innerHTML = '';
+  
+  connections.forEach(conn => {
+    const from = getTableCenter(conn.from);
+    const to = getTableCenter(conn.to);
+    if (!from || !to) return;
+    
+    // Find best connection points (edges of tables)
+    let x1, y1, x2, y2;
+    
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // Horizontal connection
+      if (dx > 0) {
+        x1 = from.right; y1 = from.y;
+        x2 = to.left; y2 = to.y;
+      } else {
+        x1 = from.left; y1 = from.y;
+        x2 = to.right; y2 = to.y;
+      }
+    } else {
+      // Vertical connection
+      if (dy > 0) {
+        x1 = from.x; y1 = from.bottom;
+        x2 = to.x; y2 = to.top;
+      } else {
+        x1 = from.x; y1 = from.top;
+        x2 = to.x; y2 = to.bottom;
+      }
+    }
+    
+    // Bezier curve
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+    const cx1 = Math.abs(dx) > Math.abs(dy) ? midX : x1;
+    const cy1 = Math.abs(dx) > Math.abs(dy) ? y1 : midY;
+    const cx2 = Math.abs(dx) > Math.abs(dy) ? midX : x2;
+    const cy2 = Math.abs(dx) > Math.abs(dy) ? y2 : midY;
+    
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
+    path.setAttribute('class', `connection-line ${conn.cls}`);
+    svg.appendChild(path);
+    
+    // Label
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', midX);
+    text.setAttribute('y', midY - 6);
+    text.setAttribute('class', 'connection-label');
+    text.textContent = conn.label;
+    svg.appendChild(text);
+  });
+}
+
+// Draw on load and resize
+window.addEventListener('load', drawConnections);
+window.addEventListener('resize', drawConnections);
+
+// Make tables draggable
+document.querySelectorAll('.table').forEach(table => {
+  let isDragging = false;
+  let startX, startY, initialX, initialY;
+  
+  table.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    initialX = table.offsetLeft;
+    initialY = table.offsetTop;
+    table.style.zIndex = 30;
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    table.style.left = (initialX + dx) + 'px';
+    table.style.top = (initialY + dy) + 'px';
+    drawConnections();
+  });
+  
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+    table.style.zIndex = 10;
+  });
+});
+</script>
+
+</body>
+</html>

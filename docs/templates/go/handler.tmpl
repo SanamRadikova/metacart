@@ -1,0 +1,52 @@
+
+---
+
+## 📁 5. templates/ — CODE TEMPLATES
+
+### templates/go/handler.tmpl
+
+```go
+package handler
+
+import (
+    "net/http"
+    "github.com/gin-gonic/gin"
+    "metacart/internal/dto"
+    "metacart/internal/service"
+)
+
+type {{.Name}}Handler struct {
+    service service.{{.Name}}Service
+}
+
+func New{{.Name}}Handler(service service.{{.Name}}Service) *{{.Name}}Handler {
+    return &{{.Name}}Handler{service: service}
+}
+
+func (h *{{.Name}}Handler) Get(c *gin.Context) {
+    id := c.Param("id")
+    
+    result, err := h.service.Get(c.Request.Context(), id)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, dto.ErrorResponse(err))
+        return
+    }
+    
+    c.JSON(http.StatusOK, dto.SuccessResponse(result))
+}
+
+func (h *{{.Name}}Handler) Create(c *gin.Context) {
+    var req dto.Create{{.Name}}Request
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, dto.ErrorResponse(err))
+        return
+    }
+    
+    result, err := h.service.Create(c.Request.Context(), req)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, dto.ErrorResponse(err))
+        return
+    }
+    
+    c.JSON(http.StatusCreated, dto.SuccessResponse(result))
+}

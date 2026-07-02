@@ -1,0 +1,15 @@
+-- {{.Version}}_{{.Name}}.up.sql
+CREATE TABLE {{.table_name}} (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    -- Add your columns here
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TRIGGER {{.table_name}}_updated_at
+    BEFORE UPDATE ON {{.table_name}}
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- {{.Version}}_{{.Name}}.down.sql
+DROP TABLE IF EXISTS {{.table_name}};

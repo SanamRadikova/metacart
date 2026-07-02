@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaCart™ MVP - User Flow & Logic Architecture (v2.0)</title>
+    <style>
+        :root {
+            --bg-color: #0c0e12;
+            --card-bg: #161a22;
+            --border-color: #21262d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent-green: #238636;
+            --accent-yellow: #d29922;
+            --accent-orange: #db6d28;
+            --accent-blue: #58a6ff;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 1.5px;
+        }
+
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 850px;
+            width: 100%;
+        }
+
+        .step-block {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .step-block:hover {
+            border-color: var(--text-muted);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .step-block.highlight-blue {
+            border-color: var(--accent-blue);
+        }
+
+        .step-number {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .step-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-content {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .badge-list {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: #21262d;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .badge.green { border-color: var(--accent-green); color: #a3f7bf; }
+        .badge.orange { border-color: var(--accent-orange); color: #ffbc99; }
+        .badge.blue { border-color: var(--accent-blue); color: #b6d4fe; }
+        .badge.yellow { border-color: var(--accent-yellow); color: #ffeb99; }
+
+        /* Стрелочки-переходы */
+        .arrow {
+            height: 40px;
+            width: 2px;
+            background-color: var(--border-color);
+            position: relative;
+        }
+
+        .arrow::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid var(--border-color);
+        }
+
+        /* Логические развилки (Ромбы) */
+        .decision-rhombus {
+            background-color: #1f242c;
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            margin: 10px 0;
+            font-weight: 500;
+            border-left: 4px solid var(--accent-blue);
+        }
+
+        .branch-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            gap: 20px;
+            margin: 10px 0;
+        }
+
+        .branch-line {
+            flex: 1;
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            background: #0f1217;
+            font-size: 13px;
+        }
+
+        .branch-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .branch-title.yes { color: var(--accent-orange); }
+        .branch-title.no { color: var(--accent-green); }
+        .branch-title.blue-text { color: var(--accent-blue); }
+
+        /* Таблица переходов */
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--text-main);
+        }
+
+        .matrix-table th, .matrix-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+
+        .matrix-table th {
+            background-color: #1f242c;
+            color: var(--text-muted);
+        }
+
+        ol, ul {
+            margin-top: 6px;
+            margin-bottom: 6px;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>MetaCart™ MVP Backend & UI User Flow</h1>
+    <div class="subtitle">Архитектура логики иерархии,Graceful Degradation и пересчета профилей (Июнь 2026)</div>
+
+    <div class="flow-container">
+
+        <!-- ЭТАП 1 -->
+        <div class="step-block">
+            <div class="step-number">Этап 1: Входной слой (Ввод данных)</div>
+            <div class="step-title">👤 Авторизация, Согласие IRB и Сбор данных</div>
+            <div class="step-content">
+                Пользователь подписывает информированное согласие на участие в клиническом пилоте $N=40$. Заполняет профиль: Пол, Возраст (критерий включения 18–65 лет), культурную группу и гормональные модификаторы.
+                <br><br>
+                <strong>Доступные каналы поступления данных:</strong>
+                <div class="badge-list">
+                    <span class="badge">Уровень А: Лабораторные анализы (PDF/Ручной ввод)</span>
+                    <span class="badge">Уровень B: Потоки Apple Health / Google Fit (HRV, Пульс)</span>
+                    <span class="badge">Уровень C: Гормональный статус (Сдвиг порогов в лютеиновой фазе)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- КРИТИЧЕСКОЕ ЗАМЕЧАНИЕ 2: ВЕТКА GRACEFUL DEGRADATION (УРОВЕНЬ D) -->
+        <div class="decision-rhombus">
+            ⚙️ <strong>Проверка полноты данных (Graceful Degradation — Уровень D):</strong><br>
+            Все ли обязательные маркеры Уровня А (Глюкоза натощак, HbA1c, TG, HDL) присутствуют в БД?
+        </div>
+
+        <div class="branch-container">
+            <!-- Сценарий А: Неполные данные -->
+            <div class="branch-line" style="border-color: var(--accent-yellow);">
+                <div class="branch-title yes" style="color: var(--accent-yellow);">Частичные данные (Деградация)</div>
+                <div style="color: var(--text-muted); font-size: 12px; line-height: 1.4;">
+                    Движок на Go <strong>не блокирует расчет</strong>. Недостающие оси помечаются статусом <code>NO_DATA</code> и исключаются из сита иерархии.
+                    <ul>
+                        <li>Нет липидов (TG/HDL) &rarr; Исключаем Ось 2.</li>
+                        <li>Нет hs-CRP &rarr; Исключаем Ось 3.</li>
+                        <li>Нет TSH &rarr; Исключаем Ось 4.</li>
+                    <li>Доступны только базовые профили: <span style="color:var(--accent-blue)">Profile 1 и Profile 2</span>.</li>
+                    </ul>
+                </div>
+            </div>
+            <!-- Сценарий B: Полные данные -->
+            <div class="branch-line" style="border-color: var(--accent-green);">
+                <div class="branch-title no">Полные данные (Штатный режим)</div>
+                <div style="color: var(--text-muted); font-size: 12px; line-height: 1.4;">
+                    Все 5 метаболических осей активированы и оцениваются по референсам:
+                    <ul>
+                        <li>Расчет жестких маркеров крови по референсам.</li>
+                        <li>Парсинг фонового HRV из Apple Health (Ось 5).</li>
+                        <li>Динамическая подстройка порогов под лютеиновую фазу (сдвиг нормы на 20%).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- ЭТАП 2 -->
+        <div class="step-block">
+            <div class="step-number">Этап 2: Осевой Анализ на бэкенде (Go + Postgres)</div>
+            <div class="step-title">📊 Скоринг-оценка 5 независимых осей</div>
+            <div class="step-content">
+                Движок на Go рассчитывает текущий статус выживших осей по референсным значениям в БД (с учетом культурных порогов в таблице <code>reference_ranges</code>):
+                <div class="badge-list">
+                    <span class="badge green">🟢 Стабильно (Green)</span>
+                    <span class="badge yellow">🟡 Внимание (Yellow)</span>
+                    <span class="badge orange">🟠 Отклонение (Orange)</span>
+                    <span class="badge">⚪️ Нет данных (No Data / Graceful Fallback)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- КРИТИЧЕСКИЙ ТРИГГЕР SDNN -->
+        <div class="decision-rhombus">
+            ⚡️ <strong>Оценка парадокса SDNN (Ось 5):</strong><br>
+            Зафиксирован утренний <span class="badge">RMSSD &lt; 25ms</span> при высоком <span class="badge">SDNN &gt; 150ms</span>?
+        </div>
+
+        <div class="branch-container">
+            <div class="branch-line" style="border-color: var(--accent-orange);">
+                <div class="branch-title yes">Да (Дисрегуляция вегетативного тонуса)</div>
+                Бэк на Go игнорирует формальную "норму" анализов и принудительно выставляет Оси 5 статус <strong>Orange (🟠)</strong>, уводя пользователя в Profile 5.
+            </div>
+            <div class="branch-line" style="border-color: var(--accent-green);">
+                <div class="branch-title no">Нет (Штатная оценка)</div>
+                Показатели HRV оцениваются линейно по стандартным порогам: RMSSD &lt; 25ms &rarr; Orange, 25-40ms &rarr; Yellow, &gt; 40ms &rarr; Green.
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- ЭТАП 3 -->
+        <div class="step-block">
+            <div class="step-number">Этап 3: Иерархическое профилирование</div>
+            <div class="step-title">🧬 Определение метаболического профиля (Шаги 0–4)</div>
+            <div class="step-content">
+                Движок прогоняет полученные статусы осей через иерархический фильтр приоритетов. Первый сработавший триггер сверху вниз фиксирует первичный профиль. Остальные отклонения падают в JSONB-модификаторы:
+                <ol style="margin-top: 10px;">
+                    <li><strong>Шаг 0 (Приоритет безопасности):</strong> Активирована Ось 5 🟠 (Нейро-вегетативная) или есть симптомы dG/dt &rarr; <span class="badge orange">Profile 5</span></li>
+                    <li><strong>Шаг 1:</strong> Активирована Ось 4 🟠 (TSH &gt; 2.5 мМЕ/л) &rarr; <span class="badge orange">Profile 4 (Стресс)</span></li>
+                    <li><strong>Шаг 2:</strong> Активирована Ось 3 🟠 (hs-CRP &gt; 1.0 мг/л) &rarr; <span class="badge orange">Profile 3 (Воспаление)</span></li>
+                    <li><strong>Шаг 3:</strong> Активирована Ось 1 🟠/🟡 или Ось 2 🟠/🟡 &rarr; <span class="badge orange">Profile 2 (Углеводный)</span></li>
+                    <li><strong>Шаг 4 (Дефолт):</strong> Все доступные оси в норме (🟢) &rarr; <span class="badge green">Profile 1 (Метаболическая гибкость)</span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- КРИТИЧЕСКОЕ ЗАМЕЧАНИЕ 1: ТРИГГЕР ПЕРЕСЧЕТА И ТРАНЗИТ ПРОФИЛЕЙ (ДЕНЬ 15+) -->
+        <div class="step-block highlight-blue">
+            <div class="step-number" style="color: var(--accent-blue);">🔄 Логика пересчета и транзита профилей (День 15+)</div>
+            <div class="step-title">🔄 Триггер повторного анализа Baseline vs Follow-up</div>
+            <div class="step-content">
+                По истечении 15 дней клинического исследования приложение блокирует генерацию текущей корзины и требует загрузить повторные анализы (Follow-up) и опросники.
+                <br><br>
+                <strong>Логика транзита на бэкенде (Go):</strong>
+                <ol>
+                    <li>Бэк сохраняет старый профиль в историю и рассчитывает новые статусы 5 осей.</li>
+                    <li>Вычисляется дельта маркеров: $\Delta \text{HbA1c} = \text{HbA1c}_{\text{follow\_up}} - \text{HbA1c}_{\text{baseline}}$ и $\Delta \text{RMSSD}$.</li>
+                    <li><strong>Транзитная матрица решений движка:</strong></li>
+                </ol>
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Исходный профиль</th>
+                            <th>Клиническая динамика (День 15)</th>
+                            <th>Новый профиль</th>
+                            <th>Действие бэкенда с корзиной</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>Profile 5 (Нейро)</b></td>
+                            <td>RMSSD вырос c &lt;25ms до &gt;35ms, симптомы ушли</td>
+                            <td><b>Profile 1 (Гибкость)</b></td>
+                            <td>Снятие ограничений по углеводам, расширение меню, отключение суплементов.</td>
+                        </tr>
+                        <tr>
+                            <td><b>Profile 4 (Стресс)</b></td>
+                            <td>TSH снизился с 2.8 до &lt;2.0 мМЕ/л</td>
+                            <td><b>Profile 1 (Гибкость)</b></td>
+                            <td>Разрешение легких калорийных дефицитов, перевод в поддерживающий режим.</td>
+                        </tr>
+                        <tr>
+                            <td><b>Profile 2 (Углеводный)</b></td>
+                            <td>HbA1c снизился &gt;0.3%, TG/HDL &lt; 1.5</td>
+                            <td><b>Profile 1 (Гибкость)</b></td>
+                            <td>Постепенное введение сложных углеводов, перевод на фазовое питание.</td>
+                        </tr>
+                        <tr>
+                            <td><b>Любой профиль</b></td>
+                            <td>Динамика отрицательная или отсутствует</td>
+                            <td><b>Без изменений</b></td>
+                            <td>Коррекция Grocery Stability Score, ротация блюд-триггеров, замена белков.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- ЭТАП 4 -->
+        <div class="step-block">
+            <div class="step-number">Этап 4: Продуктовая Матрица</div>
+            <div class="step-title">🛒 Генерация корзины и расчет Grocery Stability Score</div>
+            <div class="step-content">
+                Бэкенд на Go генерирует еженедельную корзину. После покупки чеки сканируются через OCR.
+                <br><br>
+                <strong>Формула Grocery Stability Score (GSS):</strong>
+                <div class="badge-list" style="background: #1f242c; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display:block; font-family: monospace; font-size: 13px;">
+                    GSS = (Кол-во рекомендованных продуктов в чеке / Общее кол-во продуктов в чеке) * 100 - (Штраф за продукты-триггеры)
+                </div>
+                <ul style="margin-top: 10px;">
+                    <li><i>Штраф за триггеры:</i> Каждая позиция из черного списка профиля (например, печенье для Profile 5) вычитает 10% из скора.</li>
+                    <li>GSS &gt; 80% &rarr; Отличный комплаенс (стабильная среда).</li>
+                    <li>GSS &lt; 50% &rarr; Повышенный риск дрейфа и симптомов.</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
