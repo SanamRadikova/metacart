@@ -89,12 +89,14 @@ This document defines key terms used throughout the project.
 
 ## 🌍 Cultural Groups
 
-| Group | Description |
-|-------|-------------|
-| **Eastern European** | Borscht, bone broth soups, fermented foods, buckwheat |
-| **South Asian** | Rice & dal, roti, spiced vegetables, chai |
-| **Latino** | Beans & rice, corn tortillas, fresh salsas |
-| **African-American** | Collard greens, sweet potato, black-eyed peas |
+| Group | DB Value (snake_case) | Description |
+|-------|----------------------|-------------|
+| **Eastern European** | `eastern_european` | Borscht, bone broth soups, fermented foods, buckwheat |
+| **South Asian** | `south_asian` | Rice & dal, roti, spiced vegetables, chai |
+| **Latino** | `latino` | Beans & rice, corn tortillas, fresh salsas |
+| **African-American** | `african_american` | Collard greens, sweet potato, black-eyed peas |
+| **East Asian / Chinese** | `east_asian` | Rice & greens, tofu, miso, noodles, dim sum |
+| **Standard American** | `standard_american` | Store-brand, frozen, processed (fallback) |
 
 ---
 

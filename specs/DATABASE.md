@@ -388,3 +388,37 @@ UPDATE partman.part_config
 SET retention = '12 months', retention_keep_table = false
 WHERE parent_table = 'public.device_readings';
 ```
+
+
+---
+
+## Recent Schema Changes (Phase E — 2026-07-06)
+
+### users table — new columns
+
+**`is_participant BOOLEAN NOT NULL DEFAULT FALSE`**
+- `TRUE` if user is enrolled in the research study (signed IRB consent)
+- Set to `TRUE` by `POST /api/v1/consent` handler when `agreed = true`
+- Gates admin-only endpoints (`POST /api/v1/admin/account/delete`, `GET /api/v1/admin/research/export`)
+- Default `FALSE` for explore-only users who clicked "Skip" on E3 (Research Consent)
+- Returned by `GET /api/v1/account` as `is_participant` field (E35 spec)
+
+**`onboarding_step SMALLINT NOT NULL DEFAULT 0`**
+- Range 0–7, CHECK constraint
+- 0 = not started, 1 = E2 (Sign Up), 2 = E3 (Consent), 3 = E4 (Labs), 3.5 = E4a/E4b (OCR review/manual), 4 = E5 (Cultural), 5 = E6 (Devices), 6 = E7 (Hormonal), 7 = onboarded
+- Used by E1 (Splash) to resume from first incomplete step per UC-03
+- Updated by every onboarding handler
+- `onboarding_completed = TRUE` ↔ `onboarding_step = 7`
+
+### cultural_profiles table — CHECK constraint extended
+
+**`primary_culture`** CHECK now includes `'other'`:
+- `eastern_european`, `south_asian`, `latino`, `african_american`, `east_asian`, `standard_american`, `other`
+- The `'other'` option is for users whose food traditions don't fit the 6 supported cultural groups
+- When `'other'` is selected on E5, a free-text "Describe your food traditions" field appears
+- The free-text description is stored in `cultural_profiles.staple_foods` as a JSON array starting with `{"type": "other_description", "text": "..."}` (or in a new `other_description TEXT` column if schema migration is preferred)
+
+### Note on users.cultural_group
+
+`users.cultural_group` does NOT have `'other'` — it remains one of the 6 supported groups (account-level default).
+`cultural_profiles.primary_culture` is per-E5-selection and can be `'other'`.

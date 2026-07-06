@@ -771,7 +771,9 @@ US-38: Compute Drift Score
 As the system, I want to compute drift score for each purchase, so that I can track how far actual purchases deviate from recommendations.
 Acceptance Criteria:
 Given purchases are matched, when drift analysis runs, then match_percentage and drift_percentage are computed
-Given formula is defined (ADR-019), then score is calculated
+Given formula is defined (ADR-018), then score is calculated
+======= REPLACE
+
 UC-38: Drift Score Computation
 Actor: System (engine)
 Preconditions: Purchases matched
@@ -782,7 +784,9 @@ matched_items = count of items with match_status = 'matches'
 total_recommended_items = count of items in cart_items
 match_percentage = (matched_items / total_recommended_items) × 100
 drift_percentage = 100 - match_percentage
-System computes grocery_stability_score (formula TBD, see ADR-019)
+System computes grocery_stability_score (formula TBD, see ADR-018)
+======= REPLACE
+
 System saves to drift_analyses
 Alternative Flows:
 A1: No recommended cart — System cannot compute drift, prompts user to generate cart first
@@ -995,7 +999,9 @@ User taps "Withdraw consent"
 System prompts "Are you sure? Your data will be preserved for audit but no longer used for research."
 User confirms
 System updates research_consents.withdrew_at = NOW()
-System calls soft_delete_user() function (ADR-010):
+System calls soft_delete_user() function (ADR-009):
+======= REPLACE
+
 Sets deleted_at on user and all related records
 Creates audit log entry with reason
 System logs user out

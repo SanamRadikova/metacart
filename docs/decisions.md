@@ -211,9 +211,11 @@ ALTER TABLE actual_purchases
 ADD COLUMN ocr_raw_result JSONB,  -- raw OCR output for debugging
 ADD COLUMN ocr_confidence_score NUMERIC(3, 2);  -- average confidence across items
 New screens (to be added to specs):
-Screen E10a: OCR Review — User sees extracted items, can edit names, quantities, prices
-Screen E10b: Unrecognized Items — Items OCR found but not in products_catalog — user can search manually, skip, or mark as "other"
-Fallback: If OCR fails or confidence < 0.7, fall back to manual entry (existing Screen E10).
+Screen E22: OCR Review (Receipt Items) — User sees extracted items, can edit names, quantities, prices
+Screen E23: Unrecognized Items — Items OCR found but not in products_catalog — user can search manually, skip, or mark as "other"
+Fallback: If OCR fails or confidence < 0.7, fall back to manual entry (existing Screen E20).
+======= REPLACE
+
 Consequences:
 ✅ Clean data for drift analysis (core differentiator)
 ✅ User can correct OCR errors (critical for research validity)
@@ -415,6 +417,13 @@ MODIFY COLUMN research_group VARCHAR(1) CHECK (research_group IN ('A', 'B', 'C',
 -- Group B: HbA1c 5.7-6.4% OR glucose 100-125 AND no symptoms
 -- Group C: HbA1c <5.7% AND glucose <100 AND symptoms ≥2×/week
 -- Group D: HbA1c 5.7-6.4% OR glucose 100-125 AND symptoms ≥2×/week
+
+-- research_group lifecycle (5-step process):
+-- Step 1 (Registration): users.research_group = NULL
+-- Step 2 (Baseline collection): User uploads baseline labs + symptom log
+-- Step 3 (Auto-transit): Go service EvaluateResearchGroup(userID) calculates group
+-- Step 4 (Fixation): UPDATE users SET research_group = 'A'|'B'|'C'|'D' WHERE id = userID
+-- Step 5 (Guardrail): GET /api/v1/cart returns 412 Precondition Failed if research_group IS NULL
 Consequences:
 ✅ Enables interaction effect testing
 ✅ Better statistical power for hypothesis validation
@@ -495,7 +504,14 @@ Consequences:
 ❌ Wrong formula could mislead users or researchers
 ❌ Need to validate formula against pilot data
 Action item: Schedule meeting with PI to finalize formula before implementing drift analysis.
+
+**Consistency note (current state)**: This ADR is still TBD as of the latest garmonization pass (July 2026). Two competing formulas exist in the project:
+- **Simple formula** in `specs/requirements/use_cases.md` (UC-38): `GSS = (matched_items / total_recommended_items) × 100` — range [0, 100], no penalty.
+- **Penalty formula** in `specs/requirements/detailed_screen_specs.md` (E22/E25): `GSS = (matched_items / rec_items) × 100 - (triggers_added × 10)` — range can go negative.
+The Go implementation in `drift_analyses.grocery_stability_score` (NUMERIC(5,2), see `db/schema.sql`) must use **one** formula. Until PI confirms, the engine should expose a `formula_version` field in `drift_analyses` so historical scores can be re-computed when the formula is finalized.
 ADR-019: OpenAPI YAML is the Single Source of Truth for API Contracts
+======= REPLACE
+
 Status: Accepted
 Context: Without a single source of truth for API contracts, frontend and backend can diverge, leading to integration issues. Manual DTO creation is error-prone and time-consuming.
 Decision: Use OpenAPI YAML (packages/shared/openapi/metacart-api.yaml) as the single source of truth for all API contracts. All DTOs must be generated from this specification.

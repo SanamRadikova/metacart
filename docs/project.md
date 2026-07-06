@@ -125,7 +125,7 @@ MetaCart is built on a clinical validation study:
 
 - **Deep Tracking Cohort**: ~50-75 users with CGM + HRV
 - **Standard Cohort**: ~200 users with labs + grocery tracking
-- **4 cultural groups**: Eastern European, South Asian, Latino, African-American
+- **6 cultural groups**: Eastern European, South Asian, Latino, African-American, East Asian, Standard American
 - **15-day protocol**: continuous monitoring + symptom logging
 
 ### Key Hypotheses
@@ -185,12 +185,12 @@ The beta is a lean instrument for validation, not the full product.
 - ❌ Live retailer API checkout (Instacart / Walmart / Amazon Fresh)
 - ❌ Electronic receipt import
 - ❌ Condition-specific menus
-- ❌ Expanded cultural cuisine sets (beyond 4 pilot groups)
+- ❌ Expanded cultural cuisine sets (beyond 6 pilot groups)
 - ❌ All 5 proprietary scores (pilot validates core model only)
 
 ## 📚 Further Reading
 
-- `context/ALGORITHM.md` — detailed engine logic
+- `context/alghorithm.md` — detailed engine logic
 - `context/REFERENCE_RANGES.md` — biomarker thresholds
 - `context/CULTURAL_PATTERNS.md` — cultural food patterns
 - `context/CLINICAL_VALIDATION.md` — research design

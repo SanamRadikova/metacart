@@ -21,10 +21,15 @@ CREATE TABLE users (
     cultural_group VARCHAR(30) NOT NULL CHECK (cultural_group IN (
         'eastern_european', 'south_asian', 'latino',
         'african_american', 'east_asian', 'standard_american'
-    )),
+    )) -- 'other' NOT included in users.cultural_group (account-level only), but IS allowed in cultural_profiles.primary_culture (per-E5 selection),
     -- research_group is assigned by Go service EvaluateResearchGroup() AFTER baseline labs + symptoms.
     -- Until then it stays NULL. Backend blocks cart generation with 412 Precondition Failed if NULL.
     research_group VARCHAR(1) NULL CHECK (research_group IN ('A', 'B', 'C', 'D')),
+    is_participant BOOLEAN NOT NULL DEFAULT FALSE,
+    -- TRUE if user is enrolled in the research study (signed IRB consent); gates admin endpoints
+    -- Set to TRUE by POST /api/v1/consent handler when agreed=true. Default FALSE for explore-only users.
+    onboarding_step SMALLINT NOT NULL DEFAULT 0 CHECK (onboarding_step >= 0 AND onboarding_step <= 7),
+    -- 0=not started, 1-7=current step. Used by E1 to resume from first incomplete step per UC-03.
     onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -48,7 +53,9 @@ CREATE TABLE research_consents (
 CREATE TABLE cultural_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    primary_culture VARCHAR(50) NOT NULL, -- snake_case, same enum as users.cultural_group + 'general'
+    primary_culture VARCHAR(50) NOT NULL, -- snake_case, same enum as users.cultural_group + 'general' + 'other'
+    -- 'other' added per E5 "State 2: Other Selected" + free-text fallback (UC-10)
+    -- The free-text description is stored in staple_foods as: {"type":"other_description","text":"..."}
     staple_foods JSONB NOT NULL DEFAULT '[]'::jsonb, -- Preferred traditional staple items
     dietary_restrictions JSONB NOT NULL DEFAULT '[]'::jsonb, -- e.g. ["vegetarian", "gluten-free"]
     household_size SMALLINT NOT NULL DEFAULT 1 CHECK (household_size BETWEEN 1 AND 6),

@@ -596,3 +596,92 @@ Call-to-action button (e.g., "Upload labs")
 | US-48 (Profile history) | E12 |
 | US-50 (Withdraw consent) | E34 |
 | US-51 (Deactivate) | E35 |
+
+---
+
+## 📋 Complete User Story → Screen Traceability (Extended)
+
+> **Status:** Comprehensive mapping below. Each User Story (US-01 through US-56) is mapped to the primary screen(s) that implement it. This complements the per-screen tables above.
+
+| US ID | Title | Primary Screen(s) | Notes |
+| ----- | ----- | ----------------- | ----- |
+| US-01 | Sign up / Sign in / Onboarding | E1, E2, E3, E4, E4a/E4b, E5, E6, E7 | Splash → Sign Up → Consent → Labs → Cultural → Devices → Hormonal |
+| US-02 | Research consent | E3 | IRB-compliant |
+| US-03 | Re-sign-in after deactivation | E2 | UC-52 reactivation on sign-in |
+| US-04 | Upload lab PDF/photo (OCR) | E4, E4a | OCR pipeline |
+| US-05 | Enter lab values manually | E4b | Manual entry fallback |
+| US-06 | (no spec) | — | — |
+| US-07 | (no spec) | — | — |
+| US-08 | Skip onboarding step | E3, E5, E6, E7 | All onboarding steps have Skip |
+| US-09 | Resume onboarding | E1 | Per UC-03 — resume from first incomplete step |
+| US-10 | Select cultural background | E5 | 6 supported groups + "other" |
+| US-11 | Edit cultural profile in settings | E5, E32 | Edit from settings hub |
+| US-12 | Connect Apple Health | E6 | iOS HRV/CGM data |
+| US-13 | Connect Google Fit | E6 | Android HRV data |
+| US-14 | Skip device connection | E6 | Graceful degradation |
+| US-15 | Select hormonal status | E7 | Female users only |
+| US-16 | Edit hormonal status in settings | E7, E32 | Edit from settings hub |
+| US-17 | View 5 metabolic axes | E8 | Axes dashboard |
+| US-18 | Profile calculation (5 profiles) | E10 | Backend — EvaluateProfile service |
+| US-19 | View axis details | E8, E9 | Tap axis card → modal |
+| US-20 | View active profile | E10 | Profile result screen |
+| US-21 | View profile modifiers + nutraceuticals | E10, E11 | Modifiers section |
+| US-22 | View 7-day menu | E13 | Cultural-adapted menu |
+| US-23 | View recipe details | E17 | Modal — recipe from /menu/week cache |
+| US-24 | Configure cart (budget + household) | E14 | Cart settings |
+| US-25 | Generate cart from menu | E14, E15 | POST /carts/generate |
+| US-26 | View shopping cart | E15 | Categories + total |
+| US-27 | View cart item details | E18 | Modal |
+| US-28 | Export cart (CSV/PDF) | E16 | Beta scope — no checkout |
+| US-29 | Manual purchase entry | E20 | Capture without receipt |
+| US-30 | Receipt photo (OCR) | E21, E22 | OCR pipeline |
+| US-31 | Product matching (drift detection) | Backend | Service `MatchPurchase` |
+| US-32 | View purchase summary | E24 | Match status by item |
+| US-33 | Review OCR results | E22 | Confidence scoring 🟢/🟡/🔴 |
+| US-34 | Handle unrecognized items | E23 | Search / Skip / Mark as Other |
+| US-35 | Add item to manual purchase | E20 | Inline add |
+| US-36 | Delete item from manual purchase | E20 | Swipe-to-delete |
+| US-37 | View item price (manual) | E20 | Optional price field |
+| US-38 | View drift dashboard | E25 | Core differentiator ⭐ |
+| US-39 | Empty drift state | E25 | UC-39 A1 — Capture CTA |
+| US-40 | View weekly drift details | E26 | Matched/Drift/Excluded/Missing |
+| US-41 | View drift trends over time | E27 | Line chart + stats |
+| US-42 | View drift insights | E28 | Pattern analysis |
+| US-43 | Log symptom (dizzy, brain fog) | E_symptom | Profile 5 users |
+| US-44 | Symptom log + context (HRV, dG/dt) | E_symptom | Auto-fill from device_readings |
+| US-45 | View recent purchases | E19 | Last 5 + View All |
+| US-46 | Configure notification preferences | E33 | 5 toggles, debounced save |
+| US-47 | Upload follow-up labs (30+ days) | E29, E30 | Push + in-app reminder |
+| US-48 | View profile history | E12 | Timeline + change indicators |
+| US-49 | Receive profile change notification | E31 | Improvement vs worsening tone |
+| US-50 | Withdraw research consent | E34 | UC-50 — IRB right-to-withdraw |
+| US-51 | Deactivate account | E35 | UC-51 — soft delete |
+| US-52 | Reactivate account (sign in) | E2 | UC-52 — undo deactivation |
+| US-53 | (no spec) | — | — |
+| US-54 | (no spec) | — | — |
+| US-55 | (no spec) | — | — |
+| US-56 | (no spec) | — | — |
+
+### Backend-only User Stories (no UI screen)
+
+| US ID | Title | Implementation | Notes |
+| ----- | ----- | -------------- | ----- |
+| US-31 | Product matching + drift calc | `internal/services/matching.go` | Core differentiator logic |
+| US-18 | Profile selection logic | `internal/services/profile.go` | 5-profile decision tree |
+
+### Admin-only User Stories (not in mobile app)
+
+| US ID | Title | Endpoint | Notes |
+| ----- | ----- | -------- | ----- |
+| Hard delete | 7-year IRB retention purge | `POST /api/v1/admin/account/delete` | Admin-only, not in mobile client |
+| Research export | Bulk participant data | `GET /api/v1/admin/research/export` | For IRB reporting |
+
+### Push Notification-triggered User Stories
+
+| US ID | Trigger | Destination | Notes |
+| ----- | ------- | ----------- | ----- |
+| US-47 | 30/37/44/51 days since baseline | E4 with `timepoint=follow_up` | Reminder cascade |
+| US-49 | Profile change detected | E10 with new profile | Celebration or supportive |
+| HRV alerts | RMSSD < 25 + Profile 5 | E_symptom | Daily morning check |
+| Meal reminders | 4+ hours since last meal + Profile 5 | E19 | Timer-based |
+| Post-dinner walk | 18:00–19:00 + any profile | (in-app) | 1-min movement reminder |

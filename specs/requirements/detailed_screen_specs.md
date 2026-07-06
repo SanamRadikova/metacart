@@ -12,6 +12,7 @@ User opens app
 System checks auth state (JWT token validity)
 If authenticated → redirect to Home (E25) or resume onboarding
 If not authenticated → redirect to Sign Up/Sign In (E2)
+If authenticated AND onboarding_completed = false → redirect to first incomplete step (E2 → E3 → E4 → E4a/E4b → E5 → E6 → E7 → home) — per UC-03 (resume onboarding)
 States
 State 1: Default (2 seconds)
 ┌─────────────────────────────┐
@@ -412,6 +413,7 @@ Error States
 Missing required fields → "Please enter at least glucose, HbA1c, triglycerides, and HDL"
 Value out of range → "This value seems incorrect. Expected range: X-Y"
 Invalid unit → "Please select a valid unit for this biomarker"
+Glucose ≥ 126 mg/dL OR HbA1c ≥ 6.5% → "⚕️ Your results indicate diabetes. Please consult a doctor before continuing with MetaCart." (per ADA diagnostic criteria — not a MetaCart diagnosis)
 Accessibility
 All inputs have labels
 Confidence indicators have alt text
@@ -693,7 +695,10 @@ Tap "Next" → Save, navigate to E8
 Tap "Skip" → Save default, navigate to E8
 API Calls
 POST /api/v1/hormonal-status
-Request: { status: "follicular_phase" | "luteal_phase_pms" | "perimenopause" | "postmenopause" }
+Request: { status: "follicular" | "pms" | "perimenopause" | "postmenopause" | "not_applicable" }
+Note: Short codes (UC-15) used for storage; UI displays full labels (Follicular phase, PMS/Luteal phase, Perimenopause, Postmenopause).
+======= REPLACE
+
 Response: { hormonal_status_id }
 Error States
 Status not selected → "Please select a hormonal status"
@@ -1142,6 +1147,14 @@ System retrieves active profile (UC-18)
 User sees profile screen with explanation
 User reads key principles and modifiers
 User taps "See 7-Day Menu" → navigates to E13 (Menu)
+
+**Profile 5 Trigger Logic (documented per UC-18 / use_cases.md):**
+Profile 5 (Neuro-Autonomic) is selected when ANY of the following conditions is true:
+1. **Axis 5 = 🟠 (orange)**: RMSSD < 25 ms on HRV data — primary trigger
+2. **SDNN paradox**: SDNN > 150 ms AND RMSSD < 25 ms — high variability + low parasympathetic tone = dysregulatory pattern (counterintuitive but pathological)
+3. **Glucose dynamics**: dG/dt < −0.7 mg/dL/min in last 24h AND ≥ 2 self-reported symptoms/week (dizziness, brain fog, fatigue, shakiness) — even if RMSSD is borderline
+4. **Hormonal + low HRV**: hormonal status = perimenopause or pms AND RMSSD < 35 ms — hormonal fluctuations amplify autonomic dysregulation
+This multi-criteria logic prevents false negatives for users with normal RMSSD but clear dysautonomia symptoms (a common post-Soviet diagnosis pattern labeled "VSD").
 States
 State 1: Default — Profile 1 (Metabolic Flexibility)
 ┌─────────────────────────────┐
@@ -2277,9 +2290,9 @@ E17: Recipe Detail (Modal)
 Screen ID: E17
 User Stories: US-23 (alternative)
 Priority: 🟢 P2
-Route: /cart/menu/recipe/{recipe_id} (modal)
+Route: /cart/menu/recipe/{recipe_id} (modal — recipe is nested in /menu/week response)
 Purpose
-Show detailed recipe information for a specific meal from the 7-day menu. This is a nice-to-have screen (P2) — users can see ingredients and instructions, but it's not critical for the core flow.
+Show detailed recipe information for a specific meal from the 7-day menu. The recipe data is read from the cached /menu/week response (each meal already includes `recipe_id`, `ingredients`, `prep_time_min`, `cultural_pattern`, `nutritional_info`). No separate `GET /api/v1/recipes/{id}` endpoint is required for beta — saves a round-trip and works offline. This is a nice-to-have screen (P2) — users can see ingredients and instructions, but it's not critical for the core flow.
 User Flow
 User taps a meal card on E13 (7-Day Menu)
 Modal slides up from bottom
@@ -2347,39 +2360,13 @@ Interactions:
 | Tap "Close" or swipe down | Dismiss modal |
 | Tap ingredient | Show tooltip with product details (if in catalog) |
 API Calls
-Primary:
-GET /api/v1/recipes/{recipe_id}
-Response:
-{
-  "recipe_id": "uuid",
-  "name": "Borscht with beef + sour cream",
-  "meal_type": "lunch",
-  "prep_time_min": 45,
-  "cultural_pattern": "borscht",
-  "photo_url": "https://...",
-  "ingredients": [
-    {"name": "Beef", "quantity": 1, "unit": "lb"},
-    {"name": "Beets", "quantity": 2, "unit": "medium"},
-    ...
-  ],
-  "instructions": [
-    "Simmer beef in water for 1 hour",
-    "Add beets, cabbage, carrots, onion",
-    ...
-  ],
-  "nutritional_info": {
-    "calories": 380,
-    "protein_g": 28,
-    "carbs_g": 18,
-    "fat_g": 22
-  }
-}
+None — recipe is read from cached /menu/week response. If the meal is not in the cache (e.g., deep link from outside the app), the modal shows a "Recipe not available — open your weekly menu" fallback link to E13.
 
 Error States:
 | Error | Message | Action |
 | ------- | ------- | ------- |
-| Recipe not found | "Recipe not available" | Close modal |
-| Network error | "Failed to load recipe" | Retry button |
+| Recipe not in cache | "Recipe not available — open your weekly menu" | Deep link to E13 |
+| Network error on cache load | "Failed to load recipe" | Retry button |
 Accessibility
 Modal is focus-trapped
 Close button is keyboard-accessible (Escape key)
@@ -2555,7 +2542,10 @@ System checks if recommended cart exists
 If no cart → redirect to E15 (Shopping Cart) with message
 If cart exists → show two capture options (manual / receipt)
 User chooses method → navigates to E20 or E21
+User can also use E21 from E20: "Use receipt photo instead" link (per UC-29 A1 — fall back to OCR if user prefers photo)
 Recent purchases list shown below (last 5)
+======= REPLACE
+
 States
 State 1: Default (cart exists)
 ┌─────────────────────────────┐
@@ -3206,12 +3196,13 @@ Interactions:
 | Tap "Confirm & See Drift" | Save, trigger matching, navigate to E25 |
 | Tap "×" | Discard changes, navigate back |
 
-Confidence Scoring:
+Confidence Scoring (simplified per UC-33 / use_cases.md):
 | Confidence | Indicator | User Action Required |
 | ------- | ------- | ------- |
-| ≥0.85 | 🟢 Green | Optional review |
-| 0.7-0.85 | 🟡 Yellow | Recommended review |
-| <0.7 | 🔴 Red | Required verification |
+| ≥0.7 | 🟢 Green | Optional review |
+| <0.7 | 🔴 Red | Required verification (highlighted, blocks Confirm) |
+======= REPLACE
+
 
 Verification flow:
 User taps [Verify] on low-confidence item
@@ -3689,6 +3680,10 @@ State 2: Empty state (no purchases yet)
 │  to recommendations.        │
 │                             │
 │  [ Capture Purchase ]       │
+│                             │
+│  (UC-39 A1: empty state     │
+│   when `actual_purchases`   │
+│   is empty for this week)   │
 │                             │
 └─────────────────────────────┘
 State 3: Improved trend (celebration)
@@ -4824,6 +4819,598 @@ Notification text is clear and concise
 Profile changes announced: "Profile changed from 5, Neuro-Autonomic, to 2, Carb Sensitivity."
 Axis changes announced: "Axis 5 improved from orange to green. Your HRV improved from 24 to 45 milliseconds."
 Celebration/warning tone conveyed through icon + text
+
+---
+
+# 🎯 PHASE 6: ACCOUNT & SETTINGS + GLOBAL STATES (Screens E32–E38)
+
+> **Phase goal:** Provide the participant-facing account management, consent lifecycle, and global safety states required by the IRB protocol (`docs/data-privacy.md`), the deactivation use case (UC-51, UC-52), and the consent withdrawal use case (UC-50).
+> All endpoints in this phase use the same naming style as Phase 1–5 (plural `carts/*`, flat `cart-items/*`, `menu/week`, etc.). The canonical reference for these endpoints is the API Calls section of each screen below.
+
+---
+
+## E32: Settings (Home) | 🟢 P0 | US-11, US-16, US-46, US-50, US-51 | No API calls
+
+**Screen ID:** E32
+**Route:** `/settings`
+**Purpose:** Central hub for all user-facing configuration. This is a navigation-only screen — every entry is a deep link to a dedicated settings sub-screen.
+
+**Key Architectural Decisions:**
+- 6 navigation tiles mapped 1:1 to the Account & Settings section in `specs/requirements/complete_screen_list.md`.
+- "Sign out" is a destructive action rendered separately at the bottom of the screen (not as a tile).
+- The screen is **read-only** — no `GET /api/v1/account` call is needed at load time. The avatar and email displayed in the app header are loaded once during session bootstrap and passed via app state.
+- Source: `visual/wireframes-v2.html` (Section: "Account/Settings").
+
+**User Flow:**
+1. User opens the app shell.
+2. Taps the profile/avatar icon in the top-right corner of any screen.
+3. Navigates to `/settings`.
+4. Sees the 6 tiles + "Sign out" button.
+5. Taps any tile → navigates to the corresponding sub-screen (E5, E7, E33, E34, E35, E36).
+6. Taps "Sign out" → confirm modal → logs out (uses E1's logout flow, `POST /api/v1/auth/logout`).
+
+**States (Default — single state):**
+
+```
+┌──────────────────────────┐
+│  Settings           [×]  │
+├──────────────────────────┤
+│                          │
+│  ┌────────┐  ┌────────┐  │
+│  │  🌍    │  │  ♀️     │  │
+│  │Cultural│  │Hormon. │  │
+│  │ Profile│  │ Status │  │
+│  └────────┘  └────────┘  │
+│  ┌────────┐  ┌────────┐  │
+│  │  🔔    │  │  📋    │  │
+│  │Notific.│  │Research│  │
+│  │        │  │Consent │  │
+│  └────────┘  └────────┘  │
+│  ┌────────┐  ┌────────┐  │
+│  │  👤    │  │  ℹ️     │  │
+│  │Account │  │ About  │  │
+│  └────────┘  └────────┘  │
+│                          │
+│  ──────────────────      │
+│  [  Sign out       ]     │
+│                          │
+└──────────────────────────┘
+```
+
+**UI Elements:**
+- App header: "Settings" title + close button (returns to previous screen).
+- 6 navigation tiles (2-column grid on phone, 3-column on tablet):
+  1. 🌍 **Cultural Profile** → navigates to `/settings/cultural-profile` (E5)
+  2. ♀️ **Hormonal Status** → navigates to `/settings/hormonal-status` (E7)
+  3. 🔔 **Notifications** → navigates to `/settings/notifications` (E33)
+  4. 📋 **Research Consent** → navigates to `/settings/consent` (E34)
+  5. 👤 **Account** → navigates to `/settings/account` (E35)
+  6. ℹ️ **About** → navigates to `/settings/about` (E36)
+- Each tile: icon + label + right-chevron.
+- "Sign out" button: full-width, secondary style, at the bottom of the screen.
+
+**API Calls:**
+- None (navigation-only screen).
+
+**Error States:** None (no network calls).
+
+**Accessibility:**
+- Each tile is a focusable button with accessible name "Cultural Profile", "Hormonal Status", etc.
+- Tile icons are decorative; label text is the source of truth.
+- "Sign out" is reachable via Tab key and has aria-label "Sign out of your account".
+
+---
+
+## E33: Notification Preferences | 🟡 P1 | US-46 | `GET/PUT /api/v1/notifications/preferences`
+
+**Screen ID:** E33
+**Route:** `/settings/notifications`
+**Purpose:** Per-type toggles for push and in-app notifications. Profile 5 (Neuro-Autonomic) and CGM users see additional context-specific toggles.
+
+**Key Architectural Decisions:**
+- 5 toggle groups matching the wireframe (`visual/wireframes-v2.html` Screen 1.4). The toggles are advisory — the Go backend still emits notifications regardless, but the mobile client filters which ones to display.
+- All toggles are stored server-side via `PUT /api/v1/notifications/preferences` so the same settings apply across reinstalls and devices.
+- "Save" is **automatic** (debounced 1.5s after last toggle change) — no explicit save button. This matches modern mobile UX and removes a tap.
+
+**User Flow:**
+1. User navigates from E32 → E33.
+2. App loads current preferences via `GET /api/v1/notifications/preferences`.
+3. User toggles one or more items.
+4. After 1.5s of inactivity, the app sends `PUT /api/v1/notifications/preferences` with the new state.
+5. On success: subtle toast "Preferences saved".
+6. On failure: revert toggle + show error toast.
+
+**States:** Default, Saving (transparent overlay, no blocking), Error (toast).
+
+**UI Elements:**
+- Header: "Notifications" + back button → E32.
+- 5 toggle rows (each with label + description + toggle switch):
+  1. **HRV alerts** — "Low morning HRV reminders" (Profile 5 only — disabled otherwise with note "Requires Profile 5").
+  2. **CGM glucose alerts** — "Rapidly falling glucose warnings" (CGM only — disabled otherwise with note "Requires CGM device").
+  3. **Meal reminders** — "It's been 4+ hours since you ate" (Profile 5 only).
+  4. **Post-dinner walk** — "1-minute movement reminder" (all profiles, 18:00–19:00).
+  5. **Symptom logging prompt** — "Tell us how you feel after meals" (CGM only).
+
+**API Calls:**
+
+**Primary:**
+- `GET /api/v1/notifications/preferences`
+  - Response: `{ "hrv_alerts": true, "cgm_alerts": true, "meal_reminders": false, "post_dinner_walk": true, "symptom_prompt": false }`
+- `PUT /api/v1/notifications/preferences`
+  - Request: `{ "hrv_alerts": true, "cgm_alerts": true, "meal_reminders": false, "post_dinner_walk": true, "symptom_prompt": false }`
+  - Response: `{ "updated_at": "2026-07-06T10:00:00Z" }`
+
+**Error States:**
+| Error | Message | Action |
+| --- | --- | --- |
+| Network error on load | "Couldn't load preferences. Showing defaults." | Show defaults with toggle disabled, retry icon in header |
+| PUT failed | "Couldn't save. Tap to retry." | Revert toggle, show inline error, retry on tap |
+
+**Accessibility:**
+- Each toggle is a switch with `role="switch"` and `aria-checked`.
+- Description text is read alongside label by screen readers.
+- Disabled toggles announce "unavailable, requires [Profile 5 / CGM device]".
+
+---
+
+## E34: Research Consent Management | 🟢 P0 (IRB-critical) | US-50 | `GET /consent`, `GET /consent/text`, `DELETE /consent`
+
+**Screen ID:** E34
+**Route:** `/settings/consent`
+**Purpose:** IRB-compliant consent lifecycle. Users can view the consent they agreed to, read the full text, and withdraw their consent per the right-to-withdraw clause (UC-50, `docs/data-privacy.md §1.2`).
+
+**Key Architectural Decisions:**
+- Implements UC-50 in `specs/requirements/use_cases.md`. Withdrawal triggers the ADR-009 soft-delete cascade (sets `users.deleted_at` and `research_consents.withdrew_at`).
+- The full IRB text is loaded **on demand** via `GET /consent/text` (it can be thousands of words; not inlined in the user status response).
+- "Withdraw" is the only destructive action on the screen and is rendered as a destructive-style button at the bottom with a clear "Are you sure?" modal. The modal explicitly references audit-trail preservation (per `data-privacy.md §1.2`).
+- After successful withdrawal → auto sign-out + redirect to E1 (Splash). The user is **not** shown a "logged out" modal — they land on the splash screen.
+- The screen is locked while a withdrawal is in flight (single in-flight mutation pattern).
+
+**User Flow:**
+1. User navigates from E32 → E34.
+2. App loads consent status via `GET /api/v1/consent`.
+3. Default state shows: version, agreed date, hash (truncated), "View consent text" button, "Withdraw consent" destructive button.
+4. (Optional) User taps "View consent text" → modal with full text via `GET /api/v1/consent/text`.
+5. User taps "Withdraw consent" → "Are you sure?" modal.
+6. User confirms → spinner "Withdrawing consent…".
+7. Backend sets `withdrew_at` + cascades `deleted_at` across user-related tables (ADR-009).
+8. App signs out via `POST /api/v1/auth/logout` and redirects to E1.
+9. User sees splash screen. They are not "deactivated" (UC-51); they have withdrawn research consent. They can re-register with the same email (creates a new user_id, audit trail preserved).
+
+**States (4):**
+
+**1. Default:**
+```
+┌──────────────────────────┐
+│ ← Research Consent       │
+├──────────────────────────┤
+│  Status: ● Active        │
+│                          │
+│  Version:        v1.0    │
+│  Agreed:         Jun 20, │
+│                  2026    │
+│  Hash:    a3f7c9…2e8b    │
+│                          │
+│  [ View consent text  ]  │
+│                          │
+│  ──────────────────      │
+│  [ Withdraw consent  ]   │ ← destructive red
+│                          │
+└──────────────────────────┘
+```
+
+**2. Confirming (modal over Default):**
+```
+┌──────────────────────────┐
+│  ⚠ Withdraw consent?     │
+│                          │
+│  Your data will be       │
+│  preserved for audit but │
+│  no longer used for      │
+│  research. You can       │
+│  re-consent later, but   │
+│  historical data won't   │
+│  be restored.            │
+│                          │
+│  [ Cancel ] [Yes,withdraw]│
+└──────────────────────────┘
+```
+
+**3. Withdrawing (modal blocking):**
+```
+┌──────────────────────────┐
+│        ⟳                 │
+│  Withdrawing consent…    │
+└──────────────────────────┘
+```
+
+**4. Withdrawn (briefly, then auto sign-out → E1):**
+```
+┌──────────────────────────┐
+│        ✓                 │
+│  Consent withdrawn.      │
+│  Thank you for           │
+│  participating.          │
+└──────────────────────────┘
+```
+
+**UI Elements:**
+- Status badge: green dot + "Active" (or red dot + "Withdrawn on [date]" if user re-enters after partial withdrawal).
+- Three metadata rows: Version, Agreed date, Hash (first 5 + last 4 chars of SHA-256, monospace).
+- "View consent text" — secondary button, opens full-screen modal with scrollable IRB text.
+- "Withdraw consent" — destructive button (red), full-width at the bottom.
+
+**API Calls:**
+
+**Primary:**
+- `GET /api/v1/consent`
+  - Response:
+    ```json
+    {
+      "status": "active",
+      "consent_version": "v1.0",
+      "agreed_at": "2026-06-20T14:30:00Z",
+      "withdrew_at": null,
+      "consent_text_hash": "a3f7c92e8b..."
+    }
+    ```
+- `GET /api/v1/consent/text?version=v1.0`
+  - Response:
+    ```json
+    {
+      "version": "v1.0",
+      "text": "Full IRB-approved consent text (Markdown or plain text)…",
+      "word_count": 1240
+    }
+    ```
+- `DELETE /api/v1/consent`
+  - Response: `204 No Content` (after soft-delete cascade completes server-side).
+- `POST /api/v1/auth/logout` (after successful DELETE)
+  - Response: `204 No Content`.
+
+**Error States:**
+| Error | Message | Action |
+| --- | --- | --- |
+| GET /consent failed | "Couldn't load consent status." | Retry button |
+| GET /consent/text failed | "Couldn't load consent text." | Dismiss modal, retry |
+| DELETE /consent failed | "Failed to withdraw consent. Please try again." | Close spinner, re-enable button |
+| Already withdrawn (re-entry) | Show "Withdrawn on [date]" badge, no withdraw button | — |
+
+**Accessibility:**
+- Status badge has `aria-label="Consent status: Active"`.
+- "Withdraw consent" button has `aria-label="Withdraw your research consent. This is permanent for this study."`.
+- Modal trap-focus when open; Escape key closes.
+- Withdrawal spinner announces "Withdrawing consent, please wait" via `aria-live="assertive"`.
+
+---
+
+## E35: Account Management | 🟢 P0 | US-51, US-52 | `GET /account`, `POST /account/deactivate`
+
+**Screen ID:** E35
+**Route:** `/settings/account`
+**Purpose:** Account information display and deactivation. Implements UC-51 (Deactivate) and UC-52 (Reactivate) in `specs/requirements/use_cases.md`. The user is **never** offered "hard delete" here — that happens only after the 7-year IRB retention period via the `POST /api/v1/account/delete` endpoint, accessible only by support staff, not via the mobile app.
+
+**Key Architectural Decisions:**
+- **Hard delete is NOT available in the app.** Per `data-privacy.md §1.2` and IRB protocol, hard delete of user data only occurs after the 7-year retention period via the `POST /api/v1/account/delete` endpoint, which is admin-only and not exposed in the mobile client. The app only supports soft delete (deactivation), which is reversible by sign-in.
+- Mirrors UC-51/UC-52 exactly. Deactivation is soft-delete only (`users.deleted_at = NOW()`), reversible by sign-in.
+- DOB is **masked** by default (only year is shown) to discourage shoulder-surfing — but a "show full" toggle reveals it after a 2-second hold (per the same pattern used in banking apps).
+- The "Deactivate" button is destructive but recoverable — copy explicitly states "You can reactivate anytime by signing in."
+- Reactivation is **not** a button on this screen — it happens automatically at sign-in (UC-52, E2 Sign-In flow). This avoids showing a contradictory "Reactivate" button on a "deactivated" account state.
+- Source: `data-privacy.md §1.2`, `medical-safety.md §1.2` (caloric minimum enforcement must survive deactivation's inverse — reactivation).
+
+**User Flow:**
+1. User navigates from E32 → E35.
+2. App loads account info via `GET /api/v1/account`.
+3. Default state shows email, masked DOB, join date, study group (A/B/C/D) for participants, "Deactivate account" button.
+4. User taps "Deactivate account" → "Are you sure?" modal.
+5. User confirms → spinner "Deactivating…".
+6. Backend sets `users.deleted_at = NOW()`.
+7. App signs out via `POST /api/v1/auth/logout` and redirects to E1.
+8. Later, user signs in again (E2) → system detects `deleted_at IS NOT NULL` → "Reactivate account?" prompt (handled in E2 flow per UC-52).
+
+**States (4):**
+
+**1. Default (active account):**
+```
+┌──────────────────────────┐
+│ ← Account                │
+├──────────────────────────┤
+│  Email:                  │
+│  jane.doe@example.com    │
+│                          │
+│  Date of birth:          │
+│  •••/••/1985  [ show ]   │
+│                          │
+│  Joined:                 │
+│  Jun 20, 2026            │
+│                          │
+│  Study group (B):        │
+│  Normal glucose,         │
+│  symptomatic             │
+│                          │
+│  ℹ Your data is preserved│
+│  for IRB audit. You can  │
+│  deactivate and          │
+│  reactivate anytime.     │
+│                          │
+│  [ Deactivate account ]  │ ← destructive red
+└──────────────────────────┘
+```
+
+**2. Confirming deactivation (modal):**
+```
+┌──────────────────────────┐
+│  ⚠ Deactivate your       │
+│    account?              │
+│                          │
+│  You won't be able to    │
+│  use MetaCart until you  │
+│  sign in again. Your     │
+│  data is preserved — you │
+│  can reactivate anytime. │
+│                          │
+│  [ Cancel ] [Deactivate] │
+└──────────────────────────┘
+```
+
+**3. Deactivating (modal blocking):**
+```
+┌──────────────────────────┐
+│        ⟳                 │
+│  Deactivating…           │
+└──────────────────────────┘
+```
+
+**4. Deactivated (briefly, then auto sign-out → E1):**
+```
+┌──────────────────────────┐
+│        ✓                 │
+│  Account deactivated.    │
+│                          │
+└──────────────────────────┘
+```
+
+**UI Elements:**
+- Email row: full email, monospace, copyable.
+- DOB row: masked `••/••/1985` with a "show" inline button. After tap, the button changes to "hide" and a 30-second auto-hide timer starts.
+- Joined row: formatted date (locale-aware).
+- Study group row: only shown for participants who completed onboarding (have `research_group IS NOT NULL`). Shows the group letter + a 2-line plain-language description (e.g., "Normal glucose, symptomatic").
+- IRB preservation notice: italic blockquote, links to E36 (About) for the full privacy policy.
+- "Deactivate account" — destructive button, full-width at the bottom.
+
+**API Calls:**
+
+**Primary:**
+- `GET /api/v1/account`
+  - Response:
+    ```json
+    {
+      "email": "jane.doe@example.com",
+      "date_of_birth": "1985-04-12",
+      "joined_at": "2026-06-20T14:30:00Z",
+      "research_group": "B",
+      "research_group_label": "Normal glucose, symptomatic",
+      "is_participant": true,
+      "is_deactivated": false
+    }
+    ```
+- `POST /api/v1/account/deactivate`
+  - Request: `{}` (no body — auth context identifies the user)
+  - Response: `204 No Content` (after soft-delete completes).
+- `POST /api/v1/auth/logout` (after successful deactivation)
+  - Response: `204 No Content`.
+
+**Error States:**
+| Error | Message | Action |
+| --- | --- | --- |
+| GET /account failed | "Couldn't load account info." | Retry button |
+| POST /account/deactivate failed | "Failed to deactivate. Please try again." | Close spinner, re-enable button |
+| Already deactivated (re-entry) | Show "Account deactivated" message, no deactivate button | — |
+
+**Accessibility:**
+- DOB "show" toggle is a button with `aria-pressed` state.
+- Deactivation spinner announces "Deactivating your account, please wait" via `aria-live="assertive"`.
+- Destructive button is the last focusable element on the screen; modal trap-focus when open.
+
+---
+
+## E36: About | 🟢 P2 | No API calls
+
+**Screen ID:** E36
+**Route:** `/settings/about`
+**Purpose:** Static information about the app, version, and legal links. Includes the Open Food Facts attribution required by ODbL (`docs/decisions.md` ADR-014).
+
+**Key Architectural Decisions:**
+- All content is static (compiled into the app bundle) — no API calls.
+- The Open Food Facts attribution is required by ODbL and is **not** buried in a sub-page — it is shown as a labeled link in the main list.
+- "Terms of Service" and "Privacy Policy" open in an in-app webview (not a system browser) so the user can return to MetaCart without losing context.
+
+**User Flow:**
+1. User navigates from E32 → E36.
+2. Sees version info and a list of links.
+3. Taps a link → in-app webview opens, back button returns to E36.
+
+**States:** Default (single state).
+
+**UI Elements:**
+- Header: "About" + back button → E32.
+- App info block:
+  - "MetaCart™" (large)
+  - "Metabolic-to-Grocery Engine" (subtitle)
+  - "v0.1.0 (beta)" (version)
+  - "Build 2026.07.06-001" (build number)
+- 4 link rows (right-chevron):
+  1. **Terms of Service** → opens webview
+  2. **Privacy Policy** → opens webview
+  3. **Open Food Facts attribution** → opens webview (ODbL compliance)
+  4. **Contact support** → opens `mailto:support@metacart.example`
+- Copyright: "© 2026 MetaCart / CPHE" (small, centered, at the bottom).
+
+**API Calls:**
+- None (static content).
+
+**Error States:**
+- Webview load failure → in-app error screen with "Retry" button. (Reuses the E37 pattern.)
+
+**Accessibility:**
+- Each link is a button with the full label as accessible name.
+- Version info is read as a single group: "MetaCart, Metabolic-to-Grocery Engine, version 0.1.0, build 2026.07.06-001".
+
+---
+
+## E37: Error Screen (Global) | 🟢 P0 | No API calls
+
+**Screen ID:** E37
+**Route:** `/error?type={network_error|server_error|not_found|timeout}&code={http_code}&from={route}`
+**Purpose:** Global error boundary for unhandled errors and explicit navigation errors. Reachable from any screen that catches a network/HTTP failure and decides to escalate to a full-screen error rather than an inline toast.
+
+**Key Architectural Decisions:**
+- This is a **route**, not a widget — so it can be deep-linked from any layer (including push notifications that point to broken resources).
+- The error type is passed via query string so a single screen handles 4 distinct error categories.
+- In **development builds**, an additional collapsible section shows the raw error code and stack trace. In **release builds**, this section is hidden.
+- **Critical fallback rule:** even if the rendering of E37 itself fails, the app shell must fall back to a minimal splash with the same text. This is enforced at the router level (e.g., Flutter's `ErrorWidget.builder`).
+
+**User Flow:**
+1. Any screen catches an error (network, server, timeout, or 404) and calls `router.go('/error?type=...&code=...')`.
+2. App navigates to E37 with the appropriate query params.
+3. User sees icon + title + message + action buttons.
+4. User taps "Retry" → re-runs the original request (URL of the original route passed via `from` query param).
+5. User taps "Go home" → navigates to E25 (Drift Dashboard — the home tab in the bottom nav).
+6. User taps "Contact support" (server_error only) → opens `mailto:support@metacart.example?subject=...&body=...` with pre-filled context.
+
+**States (4 error categories, each a single state):**
+
+**1. `network_error`:**
+```
+┌──────────────────────────┐
+│        📡                │
+│      No connection       │
+│                          │
+│  Check your Wi-Fi or     │
+│  mobile data and try     │
+│  again.                  │
+│                          │
+│  [ Retry ] [ Go home ]   │
+└──────────────────────────┘
+```
+
+**2. `server_error`:**
+```
+┌──────────────────────────┐
+│        ⚠️                │
+│  Something went wrong    │
+│                          │
+│  Our servers encountered │
+│  an issue. Your data is  │
+│  safe. Please try again. │
+│                          │
+│  [ Retry ] [Contact]     │
+│  [ Go home ]             │
+└──────────────────────────┘
+```
+
+**3. `not_found`:**
+```
+┌──────────────────────────┐
+│        🔍                │
+│    Page not found        │
+│                          │
+│  The page you're looking │
+│  for doesn't exist.      │
+│                          │
+│  [ Go home ]             │
+└──────────────────────────┘
+```
+
+**4. `timeout`:**
+```
+┌──────────────────────────┐
+│        ⏱️                │
+│  Request timed out       │
+│                          │
+│  The server is taking     │
+│  too long to respond.    │
+│  Please try again.       │
+│                          │
+│  [ Retry ] [ Go home ]   │
+└──────────────────────────┘
+```
+
+**UI Elements:**
+- Large icon (64×64px) — different per type.
+- Title (24px bold).
+- Description (16px regular, max 280px width, centered).
+- 1–3 action buttons (primary "Retry" + secondary "Go home" + optional "Contact support" for `server_error`).
+- Optional dev-only collapsible "Show details" panel with `code`, `from` route, and stack trace.
+
+**API Calls:**
+- None (this screen does not initiate requests).
+
+**Error States:**
+- The screen itself never throws. If the router fails to build E37, the app shell shows a minimal fallback (text-only: "An error occurred. Please reopen the app.").
+
+**Accessibility:**
+- Icon is decorative; title is the primary announcement.
+- Buttons have explicit `aria-label` matching their visible text + an action verb (e.g., "Retry the previous request").
+- Dev-only "Show details" panel uses `<details>` semantics.
+
+---
+
+## E38: Empty State (Global Pattern) | 🟢 P0 | No API calls
+
+**Screen ID:** E38 (Pattern, not a route)
+**Purpose:** Document the global empty-state pattern used across multiple screens. An empty state is rendered when a query returns zero rows but the screen is otherwise functional (no error). This is a **pattern specification**, not a screen — it is embedded into E8, E15, E19, E25, E28 as a reusable component.
+
+**Key Architectural Decisions:**
+- Empty state is a **component** (`EmptyState`) with three required props: illustration, message, CTA. The same component is reused across all listed screens.
+- Illustrations are simple monochrome SVG icons (not photos or 3D renders) — keeps the bundle small and accessible.
+- The CTA must be a **single, specific action** — not "Browse" or "Explore". The action must move the user toward the next step in their journey.
+
+**Pattern Template (component structure):**
+```
+┌──────────────────────────┐
+│                          │
+│         [icon]           │
+│                          │
+│    Clear, friendly       │
+│    message (1-2 lines)   │
+│                          │
+│  Subtext explaining why  │
+│  this is empty (optional)│
+│                          │
+│     [ Primary CTA ]      │
+│                          │
+└──────────────────────────┘
+```
+
+**Rules:**
+- **Message tone:** Friendly and direct. Never "No data", "Nothing here", or "Error". Always explain what the user *can* do next.
+- **Icon size:** 80×80px, centered, monochrome.
+- **CTA:** Single primary button. If multiple actions are possible, hide the secondary one behind a "Learn more" link below the message.
+- **No retry button** — empty state is not an error.
+
+**Existing usages (do not change without updating the spec):**
+
+| Screen | Empty trigger | Message | CTA → Action |
+| --- | --- | --- | --- |
+| **E8 (Axes Dashboard)** | No `lab_results` exist yet | "Upload your labs to see your metabolic profile" | "Upload labs" → E4 |
+| **E15 (Cart)** | No `recommended_carts` exist | "Generate your first grocery cart" | "Generate cart" → POST `/api/v1/carts/generate` |
+| **E19 (Capture Purchase)** | No `actual_purchases` exist for this week | "Capture your first receipt to start tracking drift" | "Capture purchase" → E19 form |
+| **E25 (Drift Dashboard)** | `drift_analyses` is empty (week 1) | "Not enough data yet — check back after your first purchase" | "Back to dashboard" → E10 |
+| **E28 (Follow-up Reminder)** | Follow-up labs not yet uploaded | "It's time to upload your follow-up labs" | "Upload follow-up labs" → E4 with `timepoint=follow_up` |
+
+**API Calls:**
+- None (presentation-only pattern).
+
+**Error States:**
+- None (empty state is not an error).
+
+**Accessibility:**
+- Icon is decorative (`aria-hidden="true"`).
+- Message is the heading (`<h2>` or equivalent).
+- CTA is a focusable button with a verb-first label.
+
+---
 
 🔑 CRITICAL UX NOTES FOR PHASE 5
 1. Retention is Critical for Research Success
